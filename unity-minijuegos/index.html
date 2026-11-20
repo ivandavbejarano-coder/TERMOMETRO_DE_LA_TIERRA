@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Minijuegos · Termómetro de la Tierra</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="unity-container" aria-label="Minijuegos de Termómetro de la Tierra">
+    <canvas id="unity-canvas" width="1280" height="720" tabindex="0" aria-label="Juego interactivo"></canvas>
+    <a id="atlas-return" class="atlas-return" href="../minijuegos#mundos" aria-label="Volver al atlas de mundos">← Volver al atlas</a>
+    <button id="fullscreen-toggle" class="fullscreen-toggle" type="button" aria-label="Pantalla completa" aria-pressed="false">⛶</button>
+    <section id="unity-loading-bar" aria-live="polite">
+      <div class="loading-title">Preparando el planeta...</div>
+      <div class="progress-track"><div id="unity-progress-bar-full"></div></div>
+    </section>
+    <div id="unity-warning" role="status"></div>
+  </main>
+  <script>
+    const canvas = document.querySelector('#unity-canvas');
+    const loading = document.querySelector('#unity-loading-bar');
+    const progress = document.querySelector('#unity-progress-bar-full');
+    const warning = document.querySelector('#unity-warning');
+    const atlasReturn = document.querySelector('#atlas-return');
+    const fullscreenToggle = document.querySelector('#fullscreen-toggle');
+    const requestedReturn = new URLSearchParams(window.location.search).get('return');
+    try {
+      const target = new URL(requestedReturn || '../minijuegos#mundos', window.location.href);
+      if (target.origin === window.location.origin) atlasReturn.href = target.href;
+    } catch { /* Mantiene el enlace relativo al atlas. */ }
+    atlasReturn.hidden = window.parent !== window;
+    function updateFullscreenControl() {
+      const active = Boolean(document.fullscreenElement);
+      fullscreenToggle.textContent = active ? '×' : '⛶';
+      fullscreenToggle.setAttribute('aria-label', active ? 'Salir de pantalla completa' : 'Pantalla completa');
+      fullscreenToggle.setAttribute('aria-pressed', String(active));
+    }
+    fullscreenToggle.addEventListener('click', () => {
+      if (window.parent !== window) {
+        window.parent.postMessage({ type: 'termometro:toggle-fullscreen' }, '*');
+        return;
+      }
+      const request = document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+      if (request && request.catch) request.catch(() => unityShowBanner('El navegador no permitió la pantalla completa.', 'error'));
+    });
+    document.addEventListener('fullscreenchange', updateFullscreenControl);
+    function unityShowBanner(message, type) {
+      const notice = document.createElement('div');
+      notice.className = type === 'error' ? 'notice error' : 'notice';
+      notice.textContent = message;
+      warning.replaceChildren(notice);
+      warning.hidden = false;
+      if (type !== 'error') setTimeout(() => { warning.hidden = true; }, 5500);
+    }
+    const buildUrl = 'Build';
+    const config = {
+      arguments: [],
+      dataUrl: buildUrl + '/unity-minijuegos.data',
+      frameworkUrl: buildUrl + '/unity-minijuegos.framework.js',
+      codeUrl: buildUrl + '/unity-minijuegos.wasm',
+      streamingAssetsUrl: 'StreamingAssets',
+      companyName: 'DefaultCompany',
+      productName: 'Minijuegos_Termo',
+      productVersion: '1.0',
+      showBanner: unityShowBanner,
+      matchWebGLToCanvasSize: true,
+      devicePixelRatio: Math.min(window.devicePixelRatio || 1, 1.5)
+    };
+    const script = document.createElement('script');
+    script.src = buildUrl + '/unity-minijuegos.loader.js';
+    script.onload = () => createUnityInstance(canvas, config, (value) => {
+      progress.style.width = (value * 100) + '%';
+    }).then(() => {
+      loading.hidden = true;
+      canvas.focus({ preventScroll: true });
+    }).catch((error) => unityShowBanner(error, 'error'));
+    document.body.appendChild(script);
+  </script>
+</body>
+</html>
